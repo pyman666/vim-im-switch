@@ -9,6 +9,7 @@ if has('win32') || has('win64')
     autocmd!
     autocmd InsertLeave * call vim_im_switch#InsertLeave()
     autocmd InsertEnter * call vim_im_switch#InsertEnter()
+    autocmd VimLeavePre * call vim_im_switch#Exit()
   augroup END
 
   command! -nargs=1 -complete=customlist,vim_im_switch#Complete IMSwitch call vim_im_switch#Switch(<q-args>)

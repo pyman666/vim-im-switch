@@ -1,7 +1,7 @@
 # vim-im-switch
 
 > 在 Vim/Neovim 里进出插入模式时，自动、非阻塞地切换 Windows 输入法。
-> 按 `Esc` 切到英文输入法，进入插入模式切回中文输入法。
+> 按 `Esc` 切到英文输入法，进入插入模式切回中文输入法，退出 Vim 时恢复中文输入法。
 
 ## 为什么做这个
 
@@ -28,6 +28,7 @@
 
 - 按 `Esc`（离开插入模式）→ 切到英文输入法（如 US Keyboard）
 - 进入插入模式 → 切回中文输入法（如微软拼音）
+- 退出 Vim（`:q`）→ 恢复中文输入法，不会停留在英文
 - Vim 全程不卡、不花屏，输入法切换在后台约 60ms 后生效
 
 ## 安装
@@ -74,6 +75,7 @@ let g:vim_im_switch_zh = 'zh'    " 或 2052 (微软拼音)
 " 是否自动切换（默认都开）
 let g:vim_im_switch_on_leave = 1   " 离开插入模式 -> 英文
 let g:vim_im_switch_on_enter = 1   " 进入插入模式 -> 中文
+let g:vim_im_switch_on_exit  = 1   " 退出 Vim -> 中文（恢复，避免留在英文）
 
 " 高亮微软拼音之外的输入法，直接指定 locale id 即可
 " let g:vim_im_switch_zh = 2052

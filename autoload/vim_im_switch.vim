@@ -26,6 +26,9 @@ endif
 if !exists('g:vim_im_switch_on_leave')
   let g:vim_im_switch_on_leave = 1
 endif
+if !exists('g:vim_im_switch_on_exit')
+  let g:vim_im_switch_on_exit = 1
+endif
 
 " 定位脚本路径：优先用用户显式指定的，否则相对本插件目录找 ../bin/im_switch.py
 function! s:ScriptPath() abort
@@ -35,8 +38,10 @@ function! s:ScriptPath() abort
   return s:plugin_root . '/bin/im_switch.py'
 endfunction
 
-" 后台运行切换脚本，Vim 全程不等待
-function! vim_im_switch#Switch(target) abort
+" 运行切换脚本。默认后台（不阻塞 Vim）；退出时传 1 用同步调用，
+" 因为 Vim 退出会杀掉 job，而且反正都要退出了，等 60ms 无所谓。
+function! vim_im_switch#Switch(target, ...) abort
+  let l:sync = a:0 ? a:1 : 0
   let l:py = g:vim_im_switch_python
   let l:script = s:ScriptPath()
 
@@ -49,6 +54,10 @@ function! vim_im_switch#Switch(target) abort
   endif
 
   let l:args = [l:py, l:script, a:target]
+  if l:sync
+    call system(l:args)
+    return
+  endif
   if exists('*job_start')
     " Vim 8+
     call job_start(l:args, {
@@ -72,6 +81,13 @@ endfunction
 function! vim_im_switch#InsertEnter() abort
   if g:vim_im_switch_on_enter
     call vim_im_switch#Switch(g:vim_im_switch_zh)
+  endif
+endfunction
+
+" 退出 Vim 时切回中文输入法（同步，确保脚本在 Vim 结束前跑完）
+function! vim_im_switch#Exit() abort
+  if g:vim_im_switch_on_exit
+    call vim_im_switch#Switch(g:vim_im_switch_zh, 1)
   endif
 endfunction
 
