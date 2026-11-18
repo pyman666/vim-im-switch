@@ -6,6 +6,10 @@ if exists('g:autoloaded_vim_im_switch')
 endif
 let g:autoloaded_vim_im_switch = 1
 
+" 必须在脚本顶层取 <sfile>：在函数里 <sfile> 指向「调用方」而不是本文件，
+" 会导致路径算错（例如算成当前目录/bin/im_switch.py）。
+let s:plugin_root = expand('<sfile>:p:h:h')
+
 " 默认配置
 if !exists('g:vim_im_switch_python')
   let g:vim_im_switch_python = 'python'
@@ -28,8 +32,7 @@ function! s:ScriptPath() abort
   if exists('g:vim_im_switch_script')
     return expand(g:vim_im_switch_script)
   endif
-  let l:plug_dir = expand('<sfile>:p:h:h')
-  return l:plug_dir . '/bin/im_switch.py'
+  return s:plugin_root . '/bin/im_switch.py'
 endfunction
 
 " 后台运行切换脚本，Vim 全程不等待
