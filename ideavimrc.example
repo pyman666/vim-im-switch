@@ -1,23 +1,23 @@
-" IdeaVim 配置示例
-" =================
-" 把本文件内容复制到 ~/.ideavimrc，或在 ~/.ideavimrc 里 source 本文件：
-"     source C:/Users/<你>/Documents/Scripts/vim-im-switch/ideavimrc.example
+" IdeaVim 配置示例（JetBrains IDE）
+" ================================
 "
-" 注意：IdeaVim 的 :! 是同步执行命令，每次切换约 60ms（Python 启动时间）。
-"       实测延迟可接受，但不支持 Vim 的 job_start 异步机制。
+" IdeaVim 不支持 Vim 的 :! 外部命令（会报 E492: Not an editor command），
+" 因此本仓库的 Python 脚本无法在 IdeaVim 里直接调用。
+" IdeaVim 请安装专用扩展 IdeaVimExtension：
+"   https://plugins.jetbrains.com/plugin/9615-ideavimextension
 "
-" 把下面的脚本路径改成你机器上实际的路径（用正斜杠）。
+" 安装后把下面内容复制到 ~/.ideavimrc（或追加到已有配置末尾），重启 IDE。
 
-augroup im_switch
-  autocmd!
+" 离开插入模式 -> 英文；回到插入模式 -> 恢复中文
+set keep-english-in-normal-and-restore-in-insert
 
-  " 离开插入模式 -> 英文输入法
-  autocmd InsertLeave * silent !python "C:/Users/hen5szh/Documents/Scripts/vim-im-switch/bin/im_switch.py" en
+" Windows 下显式指定输入法（ locale id 的十六进制形式）
+" 0x0409 = 英文 (US Keyboard)，0x0804 = 微软拼音 (Simplified Chinese, 2052)
+let keep_input_source_in_normal = "0x0409"
+let keep_input_source_in_insert = "0x0804"
 
-  " 进入插入模式 -> 中文输入法
-  autocmd InsertEnter * silent !python "C:/Users/hen5szh/Documents/Scripts/vim-im-switch/bin/im_switch.py" zh
+" 可选：根据插入位置上下文判断是否需要恢复中文
+" let context_aware = 1
 
-  " IdeaVim 没有 VimLeavePre 事件；
-  " 如果想离开 IDE 时恢复中文，用 FocusLost 近似（可选，注释掉即关闭）
-  autocmd FocusLost * silent !python "C:/Users/hen5szh/Documents/Scripts/vim-im-switch/bin/im_switch.py" zh
-augroup END
+" 调试用：在 IDE 里执行 :actionlist im_switch 之类的命令可查看动作 id
+" （本方案不需要手动配置 External Tool）

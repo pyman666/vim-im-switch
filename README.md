@@ -1,7 +1,7 @@
 # vim-im-switch
 
 > 在 Vim/Neovim 里进出插入模式时，自动、非阻塞地切换 Windows 输入法。
-> VSCodeVim / IdeaVim 也能复用同一个 Python 切换脚本（见下文对应章节）。
+> VSCodeVim 可复用同一个 Python 脚本；IdeaVim 需用专用扩展（见下文）。
 > 按 `Esc` 切到英文输入法，进入插入模式切回中文输入法，退出 Vim 时恢复中文输入法。
 
 ## 为什么做这个
@@ -124,17 +124,22 @@ VSCodeVim 是 VS Code 的模拟层，不是真正的 Vim，加载不了本插件
 
 ## IdeaVim（JetBrains IDE）
 
-IdeaVim 支持 `~/.ideavimrc`、`autocmd InsertEnter/InsertLeave`，也支持 `:!` 执行外部命令，但没有 `job_start`——`:!` 是**同步**的，每次切换约 60ms（实测可接受）。
+**IdeaVim 不支持 `:!` 执行外部命令**（会报 `E492: Not an editor command`），所以本仓库的 Python 脚本没法在 IdeaVim 里用。IdeaVim 这边走专用扩展：
 
-把仓库里的 `ideavimrc.example` 内容复制到 `~/.ideavimrc`，并把里面的脚本路径改成你自己的：
+1. 安装插件 **IdeaVimExtension**（[JetBrains Marketplace](https://plugins.jetbrains.com/plugin/9615-ideavimextension)）
+2. 把仓库里的 `ideavimrc.example` 内容复制到 `~/.ideavimrc`，重启 IDE
+
+核心就两行：
 
 ```vim
-autocmd InsertLeave * silent !python "C:/Users/<你>/Documents/Scripts/vim-im-switch/bin/im_switch.py" en
-autocmd InsertEnter * silent !python "C:/Users/<你>/Documents/Scripts/vim-im-switch/bin/im_switch.py" zh
-autocmd FocusLost  * silent !python "C:/Users/<你>/Documents/Scripts/vim-im-switch/bin/im_switch.py" zh
+set keep-english-in-normal-and-restore-in-insert
+let keep_input_source_in_normal = "0x0409"  " 英文 US Keyboard
+let keep_input_source_in_insert = "0x0804"  " 微软拼音 (2052)
 ```
 
-IdeaVim 没有 `VimLeavePre` 事件，所以用 `FocusLost`（IDE 失去焦点）近似「离开时恢复中文」——这一行可选，不需要就删掉。
+行为：进插入模式 → 微软拼音；按 `Esc` 离开插入 → 英文；再进插入 → 恢复中文。插件本身还是用 Windows 消息切输入法，响应很快，不需要额外跑 Python。
+
+`ideavimrc.example` 里还给了可选的 `context_aware` 配置（根据插入位置上下文判断是否恢复中文）。
 
 ## 怎么查自己输入法的 locale id
 
