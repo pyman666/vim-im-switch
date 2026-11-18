@@ -106,20 +106,20 @@ let g:vim_im_switch_script = 'D:\path\to\im_switch.py'
 
 VSCodeVim 是 VS Code 的模拟层，不是真正的 Vim，加载不了本插件。但它有**内置**的 `vim.autoSwitchInputMethod`，可以直接复用本仓库的 Python 脚本，**不需要 im-select.exe**：
 
-在 VS Code 的 `settings.json` 里加：
+在 VS Code 的 `settings.json` 里加（**必须用 python.exe 的绝对路径**，原因见下方）：
 
 ```json
 {
   "vim.autoSwitchInputMethod.enable": true,
   "vim.autoSwitchInputMethod.defaultIM": "1033",
-  "vim.autoSwitchInputMethod.obtainIMCmd": "python C:\\Users\\<你>\\Documents\\Scripts\\vim-im-switch\\bin\\im_switch.py get",
-  "vim.autoSwitchInputMethod.switchIMCmd": "python C:\\Users\\<你>\\Documents\\Scripts\\vim-im-switch\\bin\\im_switch.py {im}"
+  "vim.autoSwitchInputMethod.obtainIMCmd": "C:\\Users\\<你>\\AppData\\Local\\anaconda3\\python.exe C:\\Users\\<你>\\Documents\\Scripts\\vim-im-switch\\bin\\im_switch.py get",
+  "vim.autoSwitchInputMethod.switchIMCmd": "C:\\Users\\<你>\\AppData\\Local\\anaconda3\\python.exe C:\\Users\\<你>\\Documents\\Scripts\\vim-im-switch\\bin\\im_switch.py {im}"
 }
 ```
 
-- `get` 是脚本新增的子命令，输出当前输入法 locale id，供 VSCodeVim 记录
-- `{im}` 是 VSCodeVim 的占位符，会替换成目标 locale id
-- 行为：进插入模式时记录当前输入法 → 退出切英文（1033）→ 再进插入恢复之前的输入法
+- **关键点**：VSCodeVim 会检查命令的**第一个词**是否为存在的文件（取 `cmd.split(' ')[0]`）。写 `python ...` 会找不到叫 `python` 的文件，验证失败后它会**静默关闭**这个功能。用 `where python` 查到绝对路径再填进去。
+- `{im}` 是 VSCodeVim 的占位符，会替换成目标 locale id（1033 / 2052）
+- 行为：离开插入模式时记录当前输入法（中文）并切到英文（1033）；再进插入恢复中文
 - VSCodeVim 没有「关闭编辑器时恢复」的钩子，但下一次进插入会自动恢复中文
 
 ## IdeaVim（JetBrains IDE）
@@ -140,6 +140,8 @@ let keep_input_source_in_insert = "0x0804"  " 微软拼音 (2052)
 行为：进插入模式 → 微软拼音；按 `Esc` 离开插入 → 英文；再进插入 → 恢复中文。插件本身还是用 Windows 消息切输入法，响应很快，不需要额外跑 Python。
 
 `ideavimrc.example` 里还给了可选的 `context_aware` 配置（根据插入位置上下文判断是否恢复中文）。
+
+已知限制：IdeaVim 没有 `VimLeavePre`，IdeaVimExtension 也没有「退出 IDE / 关闭 Vim 模式时恢复输入法」的钩子，所以退出时仍可能停留在英文。下一次进插入模式会自动恢复中文。
 
 ## 怎么查自己输入法的 locale id
 
