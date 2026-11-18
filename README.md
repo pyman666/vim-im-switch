@@ -36,9 +36,9 @@
 
 ### 前提
 
-- Windows
+- **Windows**：默认配置就是针对 Windows 的「英文键盘 + 微软拼音」写的（`1033` / `2052`），其他系统不适用
 - Vim 8+ 或 Neovim（需要 `job_start` / `jobstart`）
-- Python 3 在 `PATH` 里（`python --version` 能跑通）
+- **Python 3 环境**：`python --version` 能跑通即可。切换脚本只用标准库 `ctypes`，不需要 `pip install`；如果 `python` 不在 `PATH`，可用 `g:vim_im_switch_python` 指定 python.exe 的绝对路径
 
 ### 方式一：用 Vim 包管理（推荐）
 
@@ -63,7 +63,9 @@ git clone https://github.com/pyman666/vim-im-switch `
 
 ## 配置
 
-默认行为通常不用改。如需调整，在 `_vimrc` / `init.vim` 里（**放在 `Plug` / 插件加载之前**）：
+默认行为通常不用改。默认值 `en = 1033` / `zh = 2052`，对应 **Windows 的 US Keyboard + 微软拼音**；用其他输入法时改成对应的 locale id。
+
+如需调整，在 `_vimrc` / `init.vim` 里（**放在 `Plug` / 插件加载之前**）：
 
 ```vim
 " 用的 Python 解释器（默认 'python'）
@@ -78,7 +80,7 @@ let g:vim_im_switch_on_leave = 1   " 离开插入模式 -> 英文
 let g:vim_im_switch_on_enter = 1   " 进入插入模式 -> 中文
 let g:vim_im_switch_on_exit  = 1   " 退出 Vim -> 中文（恢复，避免留在英文）
 
-" 高亮微软拼音之外的输入法，直接指定 locale id 即可
+" 想用微软拼音之外的中文输入法，直接指定 locale id 即可
 " let g:vim_im_switch_zh = 2052
 ```
 
