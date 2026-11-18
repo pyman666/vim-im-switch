@@ -1,0 +1,23 @@
+" IdeaVim 配置示例
+" =================
+" 把本文件内容复制到 ~/.ideavimrc，或在 ~/.ideavimrc 里 source 本文件：
+"     source C:/Users/<你>/Documents/Scripts/vim-im-switch/ideavimrc.example
+"
+" 注意：IdeaVim 的 :! 是同步执行命令，每次切换约 60ms（Python 启动时间）。
+"       实测延迟可接受，但不支持 Vim 的 job_start 异步机制。
+"
+" 把下面的脚本路径改成你机器上实际的路径（用正斜杠）。
+
+augroup im_switch
+  autocmd!
+
+  " 离开插入模式 -> 英文输入法
+  autocmd InsertLeave * silent !python "C:/Users/hen5szh/Documents/Scripts/vim-im-switch/bin/im_switch.py" en
+
+  " 进入插入模式 -> 中文输入法
+  autocmd InsertEnter * silent !python "C:/Users/hen5szh/Documents/Scripts/vim-im-switch/bin/im_switch.py" zh
+
+  " IdeaVim 没有 VimLeavePre 事件；
+  " 如果想离开 IDE 时恢复中文，用 FocusLost 近似（可选，注释掉即关闭）
+  autocmd FocusLost * silent !python "C:/Users/hen5szh/Documents/Scripts/vim-im-switch/bin/im_switch.py" zh
+augroup END
