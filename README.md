@@ -1,1 +1,154 @@
 # vim-im-switch
+
+> 在 Vim/Neovim 里进出插入模式时，自动、非阻塞地切换 Windows 输入法。
+> 按 `Esc` 切到英文输入法，进入插入模式切回中文输入法。
+
+## 为什么做这个
+
+在 Vim 里用微软拼音打字，退出插入模式后输入法还停留在中文，按 `h/j/k/l` 会触发候选词，很烦。
+
+已有的方案 [AIMSwitcher](https://github.com/A-23187/AIMSwitcher) 通过 `autocmd InsertLeave * silent !AIMSwitcher.exe --imm 0` 切换，但实测：
+
+| 方式 | 实测耗时 |
+| --- | --- |
+| AIMSwitcher `--imm 0`（切「微软拼音中英文模式」，`SendMessage`） | 0.7 ~ 10 秒，且让 Vim 卡住、花屏 |
+| 本工具（切「输入法」，`PostMessage` + Python） | 脚本启动 ~60ms，`PostMessage` 本身 ~0ms，Vim 零等待 |
+
+根因：
+
+1. `silent !` 是同步 shell 命令，阻塞 Vim、抢前台窗口、破坏重绘
+2. AIMSwitcher 用 `SendMessage(IMC_SETCONVERSIONMODE)` 切微软拼音的**模式**，微软拼音响应不稳定，最慢到 10 秒
+
+本工具换成两条更快的路径：
+
+- **用 Vim 的 `job_start` / `jobstart` 异步调用**，Vim 完全不等待
+- **用 `PostMessage(WM_INPUTLANGCHANGEREQUEST)` 直接切输入法**，而不是切微软拼音的内部模式，非阻塞、瞬发
+
+## 效果
+
+- 按 `Esc`（离开插入模式）→ 切到英文输入法（如 US Keyboard）
+- 进入插入模式 → 切回中文输入法（如微软拼音）
+- Vim 全程不卡、不花屏，输入法切换在后台约 60ms 后生效
+
+## 安装
+
+### 前提
+
+- Windows
+- Vim 8+ 或 Neovim（需要 `job_start` / `jobstart`）
+- Python 3 在 `PATH` 里（`python --version` 能跑通）
+
+### 方式一：用 Vim 包管理（推荐）
+
+用 [vim-plug](https://github.com/junegunn/vim-plug) 等插件管理器：
+
+```vim
+Plug 'pyman666/vim-im-switch'
+```
+
+其他管理器把仓库地址换成 `https://github.com/pyman666/vim-im-switch` 即可。
+
+### 方式二：手动放置
+
+把仓库克隆到 Vim 的 `pack` 目录：
+
+```powershell
+git clone https://github.com/pyman666/vim-im-switch `
+  "$env:LOCALAPPDATA\nvim-data\site\pack\plugins\start\vim-im-switch"
+```
+
+（Neovim 路径如上；Vim 通常把 `vim-data` 换成 `vimfiles`。）
+
+## 配置
+
+默认行为通常不用改。如需调整，在 `_vimrc` / `init.vim` 里（**放在 `Plug` / 插件加载之前**）：
+
+```vim
+" 用的 Python 解释器（默认 'python'）
+let g:vim_im_switch_python = 'python'
+
+" 英文 / 中文输入法，可用别名或 locale id
+let g:vim_im_switch_en = 'en'    " 或 1033 (US Keyboard)
+let g:vim_im_switch_zh = 'zh'    " 或 2052 (微软拼音)
+
+" 是否自动切换（默认都开）
+let g:vim_im_switch_on_leave = 1   " 离开插入模式 -> 英文
+let g:vim_im_switch_on_enter = 1   " 进入插入模式 -> 中文
+
+" 高亮微软拼音之外的输入法，直接指定 locale id 即可
+" let g:vim_im_switch_zh = 2052
+```
+
+如果不想进插入模式自动切中文（比如主要写英文代码），设：
+
+```vim
+let g:vim_im_switch_on_enter = 0
+```
+
+自定义脚本路径（一般不用）：
+
+```vim
+let g:vim_im_switch_script = 'D:\path\to\im_switch.py'
+```
+
+## 手动命令
+
+```vim
+:IMSwitch en    " 切英文
+:IMSwitch zh    " 切中文
+:IMSwitch 1033  " 用 locale id
+```
+
+## 怎么查自己输入法的 locale id
+
+打开一个新输入法，在 PowerShell 里跑：
+
+```powershell
+Add-Type -AssemblyName System.Windows.Forms
+# 切换输入法后，用下面 Python 片段读当前 locale id
+```
+
+或直接用本仓库的查询思路（依赖 Windows API）：
+
+```python
+import ctypes
+u = ctypes.windll.user32
+u.GetForegroundWindow.restype = ctypes.c_void_p
+u.GetWindowThreadProcessId.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+u.GetWindowThreadProcessId.restype = ctypes.c_uint
+u.GetKeyboardLayout.argtypes = [ctypes.c_uint]
+u.GetKeyboardLayout.restype = ctypes.c_void_p
+h = u.GetForegroundWindow()
+t = u.GetWindowThreadProcessId(h, None)
+print(int(u.GetKeyboardLayout(t)) & 0xFFFF)
+```
+
+常见值：`1033` = US Keyboard（英文），`2052` = 微软拼音（简体中文）。
+
+## 工作原理
+
+```
+InsertLeave / InsertEnter (Vim autocmd)
+        │
+        ▼  job_start() 异步启动（Vim 不等待）
+   python bin/im_switch.py en|zh
+        │
+        ▼  ctypes 调用 user32.PostMessageW
+   WM_INPUTLANGCHANGEREQUEST -> 前台窗口
+        │
+        ▼
+   Windows 切换输入法（异步，~0ms）
+```
+
+关键点：切的是**输入法**（`WM_INPUTLANGCHANGEREQUEST`），不是微软拼音的**内部中英文模式**（`IMC_SETCONVERSIONMODE`）。后者响应慢且不稳定，前者瞬发。
+
+## 限制
+
+- 仅 Windows
+- 切换作用于「前台窗口」，切到 Vim 之外时 autocmd 不会触发（Vim 没焦点就没有 InsertLeave）
+- `python` 启动约 60ms，输入法在这之后才切过去（Vim 本身不卡）
+- 只切输入法整体，不控制微软拼音内部的中英文模式；需要两种输入法都装好（如 US Keyboard + 微软拼音）
+
+## License
+
+MIT
