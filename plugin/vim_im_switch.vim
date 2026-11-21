@@ -4,7 +4,9 @@ if exists('g:loaded_vim_im_switch')
 endif
 let g:loaded_vim_im_switch = 1
 
-if has('win32') || has('win64')
+" Windows: Python + PostMessage 切输入法；macOS: im-select CLI 切输入源。
+" 两者都用异步 job，Vim 不等待；其他平台不注册。
+if has('win32') || has('win64') || has('macunix')
   augroup vim_im_switch
     autocmd!
     autocmd InsertLeave * call vim_im_switch#InsertLeave()

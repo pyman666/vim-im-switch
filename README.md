@@ -1,6 +1,7 @@
 # vim-im-switch
 
-> 在 Vim/Neovim 里进出插入模式时，自动、非阻塞地切换 Windows 输入法。
+> 在 Vim/Neovim 里进出插入模式时，自动、非阻塞地切换 Windows / macOS 输入法。
+> 两个平台都用「直接切输入法/输入源」而不是模拟按键或切 IME 内部模式（后者慢且不稳）。
 > VSCodeVim 可复用同一个 Python 脚本；IdeaVim 需用专用扩展（见下文）。
 > 按 `Esc` 切到英文输入法，进入插入模式切回中文输入法，退出 Vim 时恢复中文输入法。
 
@@ -36,9 +37,9 @@
 
 ### 前提
 
-- **Windows**：默认配置就是针对 Windows 的「英文键盘 + 微软拼音」写的（`1033` / `2052`），其他系统不适用
 - Vim 8+ 或 Neovim（需要 `job_start` / `jobstart`）
-- **Python 3 环境**：`python --version` 能跑通即可。切换脚本只用标准库 `ctypes`，不需要 `pip install`；如果 `python` 不在 `PATH`，可用 `g:vim_im_switch_python` 指定 python.exe 的绝对路径
+- **Windows**：默认配置针对「US Keyboard + 微软拼音」（`1033` / `2052`）。另需 **Python 3**（只用标准库 `ctypes`，无需 `pip install`）；`python` 不在 `PATH` 时用 `g:vim_im_switch_python` 指定 python.exe 绝对路径
+- **macOS**：默认针对「ABC 键盘布局 + 简体拼音」两个输入源，用 `im-select` 直接切换，**不需要 Python、不需要辅助功能权限**（见下方安装）
 
 ### 方式一：用 Vim 包管理（推荐）
 
@@ -61,27 +62,66 @@ git clone https://github.com/pyman666/vim-im-switch `
 
 （Neovim 路径如上；Vim 通常把 `vim-data` 换成 `vimfiles`。）
 
+### macOS
+
+和 Windows 同一个思路：**直接切输入源**（`TISSelectInputSource`），不按切换键、不切 IME 内部模式。
+
+装 `im-select`（提供 `im-select` / `im-select <input-source-id>` 两个命令）：
+
+```sh
+# 方式 A：Homebrew
+brew tap daipeihust/tap && brew install im-select
+
+# 方式 B：直接下载预编译二进制（Intel Mac）
+curl -Ls https://raw.githubusercontent.com/daipeihust/im-select/master/macOS/out/intel/im-select \
+  -o "$HOME/.local/bin/im-select" && chmod +x "$HOME/.local/bin/im-select"
+
+# Apple Silicon 把上面的 intel 换成 apple
+```
+
+然后照常 `Plug 'pyman666/vim-im-switch'`。不需要 Python，也不需要辅助功能权限。
+
+> 两个平台共用同一份代码（同一个 `main` 分支）：插件在运行时用
+> `has('win32')` / `has('macunix')` 自动选后端，配置里不需要按平台换来源。
+
+查当前输入源：`im-select`（无参数）；切换：`im-select com.apple.keylayout.ABC`。
+macOS 上 `en` / `zh` 默认分别是 `com.apple.keylayout.ABC` / `com.apple.inputmethod.SCIM.ITABC`，
+用别的中文输入法时在配置里覆盖 `g:vim_im_switch_zh`（见下）。
+
+> 为什么不用 Caps Lock 模拟按键：实测 `osascript`/`CGEvent` 发的合成按键到不了简体拼音的
+> 内部中英文模式，且这正是 README 开头说的「切模式」慢且不稳那条路。系统里本来就启用了
+> ABC 和简体拼音两个输入源，直接选中它们就是英文/中文，快且可靠。
+
 ## 配置
 
-默认行为通常不用改。默认值 `en = 1033` / `zh = 2052`，对应 **Windows 的 US Keyboard + 微软拼音**；用其他输入法时改成对应的 locale id。
+默认行为通常不用改，按 OS 取不同默认值：
+
+| 平台 | 切换方式 | `en` / `zh` |
+| --- | --- | --- |
+| Windows | 切输入法：`1033` US Keyboard ↔ `2052` 微软拼音 | 两个不同的 locale id |
+| macOS | 切输入源：`ABC` ↔ `简体拼音` | 两个不同的 input source id |
 
 如需调整，在 `_vimrc` / `init.vim` 里（**放在 `Plug` / 插件加载之前**）：
 
 ```vim
-" 用的 Python 解释器（默认 'python'）
+" Windows 用的 Python 解释器（默认 'python'；macOS 用不到）
 let g:vim_im_switch_python = 'python'
 
-" 英文 / 中文输入法，可用别名或 locale id
+" 英文 / 中文输入法，可用 en/zh 别名，也可直接写各平台标识
+" Windows:
 let g:vim_im_switch_en = 'en'    " 或 1033 (US Keyboard)
 let g:vim_im_switch_zh = 'zh'    " 或 2052 (微软拼音)
+" macOS（把下面两行注释掉即可用默认值）:
+" let g:vim_im_switch_en = 'com.apple.keylayout.ABC'
+" let g:vim_im_switch_zh = 'com.apple.inputmethod.SCIM.ITABC'
+
+" macOS 下 im-select 的路径（默认 'im-select'，从 PATH 找）
+let g:vim_im_switch_im_select = $HOME . '/.local/bin/im-select'
 
 " 是否自动切换（默认都开）
 let g:vim_im_switch_on_leave = 1   " 离开插入模式 -> 英文
 let g:vim_im_switch_on_enter = 1   " 进入插入模式 -> 中文
 let g:vim_im_switch_on_exit  = 1   " 退出 Vim -> 中文（恢复，避免留在英文）
-
-" 想用微软拼音之外的中文输入法，直接指定 locale id 即可
-" let g:vim_im_switch_zh = 2052
 ```
 
 如果不想进插入模式自动切中文（比如主要写英文代码），设：
@@ -90,7 +130,7 @@ let g:vim_im_switch_on_exit  = 1   " 退出 Vim -> 中文（恢复，避免留�
 let g:vim_im_switch_on_enter = 0
 ```
 
-自定义脚本路径（一般不用）：
+自定义 Windows 脚本路径（一般不用）：
 
 ```vim
 let g:vim_im_switch_script = 'D:\path\to\im_switch.py'
@@ -101,7 +141,9 @@ let g:vim_im_switch_script = 'D:\path\to\im_switch.py'
 ```vim
 :IMSwitch en    " 切英文
 :IMSwitch zh    " 切中文
-:IMSwitch 1033  " 用 locale id
+:IMSwitch 1033  " Windows: 用 locale id
+:IMSwitch com.apple.keylayout.ABC  " macOS: 用 input source id
+:IMSwitch get   " 同步查询当前输入法/输入源并显示在消息栏
 ```
 
 ## VSCodeVim（VS Code）
@@ -123,6 +165,19 @@ VSCodeVim 是 VS Code 的模拟层，不是真正的 Vim，加载不了本插件
 - `{im}` 是 VSCodeVim 的占位符，会替换成目标 locale id（1033 / 2052）
 - 行为：离开插入模式时记录当前输入法（中文）并切到英文（1033）；再进插入恢复中文
 - VSCodeVim 没有「关闭编辑器时恢复」的钩子，但下一次进插入会自动恢复中文
+
+**macOS 版**（直接用 `im-select`，同样不用本插件）：
+
+```json
+{
+  "vim.autoSwitchInputMethod.enable": true,
+  "vim.autoSwitchInputMethod.defaultIM": "com.apple.keylayout.ABC",
+  "vim.autoSwitchInputMethod.obtainIMCmd": "/Users/<你>/.local/bin/im-select",
+  "vim.autoSwitchInputMethod.switchIMCmd": "/Users/<你>/.local/bin/im-select {im}"
+}
+```
+
+同样要注意第一个词必须是存在的文件，所以用 `im-select` 的绝对路径。
 
 ## IdeaVim（JetBrains IDE）
 
@@ -173,27 +228,35 @@ print(int(u.GetKeyboardLayout(t)) & 0xFFFF)
 
 ## 工作原理
 
+两条路径共用同一套 autocmd 和异步 job 调度，只在「真正切换」那一步按 OS 分支：
+
 ```
 InsertLeave / InsertEnter (Vim autocmd)
         │
-        ▼  job_start() 异步启动（Vim 不等待）
-   python bin/im_switch.py en|zh
-        │
-        ▼  ctypes 调用 user32.PostMessageW
-   WM_INPUTLANGCHANGEREQUEST -> 前台窗口
+        ▼  job_start() / jobstart() 异步启动（Vim 不等待）
+   ┌────────────────────────┬──────────────────────────┐
+   │ Windows                │ macOS                    │
+   │ python bin/im_switch.py│ im-select <input-source> │
+   │   ↓ ctypes             │   ↓ TIS API              │
+   │ PostMessageW           │ TISSelectInputSource     │
+   │ WM_INPUTLANGCHANGEREQUEST│ 切换当前 App 的输入源   │
+   └────────────────────────┴──────────────────────────┘
         │
         ▼
-   Windows 切换输入法（异步，~0ms）
+   输入法切换完成（Vim 全程不卡）
 ```
 
-关键点：切的是**输入法**（`WM_INPUTLANGCHANGEREQUEST`），不是微软拼音的**内部中英文模式**（`IMC_SETCONVERSIONMODE`）。后者响应慢且不稳定，前者瞬发。
+两个平台的关键点相同：切的是**输入法/输入源本身**，不是 IME 的内部模式。
+Windows 用 `WM_INPUTLANGCHANGEREQUEST`，macOS 用 `TISSelectInputSource`；
+「切模式」那条路（`IMC_SETCONVERSIONMODE` / 模拟切换键）慢且不稳，所以都不走。
 
 ## 限制
 
-- 仅 Windows
-- 切换作用于「前台窗口」，切到 Vim 之外时 autocmd 不会触发（Vim 没焦点就没有 InsertLeave）
-- `python` 启动约 60ms，输入法在这之后才切过去（Vim 本身不卡）
-- 只切输入法整体，不控制微软拼音内部的中英文模式；需要两种输入法都装好（如 US Keyboard + 微软拼音）
+- 只支持 Windows / macOS；Linux 可另接 `ibus` / `fcitx` / `xkb-switch`（同样的异步 job 思路）
+- 切换作用于「当前前台 App」，切到 Vim 之外时 autocmd 不会触发（Vim 没焦点就没有 InsertLeave）
+- Windows 上 `python` 启动约 60ms，输入法在这之后才切过去（Vim 本身不卡）；macOS 的 `im-select` 是原生二进制，几乎瞬时
+- 两个平台都需要两种输入法/输入源都启用（Windows: US Keyboard + 微软拼音；macOS: ABC + 简体拼音）
+- macOS 输入源是按 App 记住的：如果某次切换没生效，检查 `im-select` 能否列出/设置目标 ID
 
 ## License
 
